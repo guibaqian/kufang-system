@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" href="data:,">
+<title>手机拍照上传</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;background:#f5f6f8;color:#1f2329;font-size:16px;line-height:1.5;padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+h1{font-size:19px;font-weight:700}
+.sub{color:#8f959e;font-size:13.5px;margin-top:2px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-top:14px}
+.cam{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:150px;border:2px dashed #cfdcf8;border-radius:14px;background:#eef3fe;color:#2f66e0;font-weight:600;font-size:17px;cursor:pointer;position:relative}
+.cam i{font-style:normal;font-size:38px;line-height:1}
+.cam input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
+.alt{display:block;text-align:center;margin-top:10px;color:#2f66e0;font-size:14.5px;position:relative}
+.alt input{position:absolute;inset:0;opacity:0}
+.ph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.ph div{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#eceef1}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph span{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font-size:12px;text-align:center;padding:2px}
+.btn{display:block;width:100%;height:48px;border:0;border-radius:12px;background:#2f66e0;color:#fff;font-size:17px;font-weight:600;margin-top:16px}
+.btn:disabled{background:#c9d3e6}
+.msg{margin-top:12px;font-size:14px;color:#5c6370;text-align:center}
+.bad{color:#c53b3b}.ok{color:#2f8a57}
+</style></head><body>
+<h1>手机拍照上传</h1><div class="sub" id="lab">正在连接电脑…</div>
+<div class="card" id="box">
+  <label class="cam" id="camL"><i>📷</i>点这里拍照<span style="font-weight:400;font-size:13px;color:#5c6370">可以连拍多张</span><input type="file" id="cam" accept="image/*" capture="environment" multiple></label>
+  <label class="alt">或从相册选<input type="file" id="pick" accept="image/*" multiple></label>
+  <div class="ph" id="ph"></div>
+  <button class="btn" id="done" disabled>完成</button>
+  <div class="msg" id="msg"></div>
+</div>
+<script>
+const T = (location.hash || '').slice(1) || new URLSearchParams(location.search).get('t') || '';
+const $ = s => document.querySelector(s);
+let n = 0, busy = 0, closed = false;
+const msg = (t, cls) => { const m = $('#msg'); m.textContent = t; m.className = 'msg ' + (cls || ''); };
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || ('出错了 ' + r.status)); return j;
+}
+function shrink(file, maxSide, q) {
+  return new Promise((res, rej) => { const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { const s = Math.min(1, maxSide / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', q)); };
+    img.onerror = () => rej(new Error('图片打不开')); img.src = url; });
+}
+function stop(t) { closed = true; $('#camL').style.opacity = .4; $$('input').forEach(i => i.disabled = true); $('#done').disabled = true; msg(t, 'bad'); }
+const $$ = s => [...document.querySelectorAll(s)];
+async function info() {
+  if (!T) return stop('二维码不完整，请在电脑上重新生成');
+  try { const r = await api('/api/upq/info?t=' + encodeURIComponent(T)); $('#lab').textContent = '传到电脑上的：' + r.label;
+    if (r.state !== 'open') return stop(r.state === 'expired' ? '二维码已过期（10 分钟有效），请在电脑上重新生成' : '这个二维码已用完，请在电脑上重新生成');
+    msg('拍好的照片会马上出现在电脑上'); } catch (e) { stop(e.message); }
+}
+async function send(files) {
+  let k = 0;
+  for (const f of files) {
+    if (closed) return;
+    k++; if (files.length > 1) msg('正在上传 第 ' + k + ' / ' + files.length + ' 张…');
+    const d = document.createElement('div'); d.innerHTML = '<span>上传中…</span>'; $('#ph').appendChild(d); busy++; $('#done').disabled = true;
+    try {
+      const data = await shrink(f, 2500, 0.85); /* 最长边 2500、质量 0.85：手写的字看得清 */ const im = new Image(); im.src = data; d.prepend(im);
+      await api('/api/upq/photo', { t: T, data, name: f.name || 'phone.jpg' }); n++; d.querySelector('span').textContent = '已传 ✓';
+    } catch (e) { d.querySelector('span').textContent = '失败'; msg(e.message, 'bad'); if (/过期|用完|无效/.test(e.message)) stop(e.message); }
+    busy--; $('#done').disabled = closed || busy > 0 || !n;
+    if (!closed && (k === files.length || !busy)) msg(busy ? '正在上传…' : '已传 ' + n + ' 张，可以接着拍；传完点「完成」', busy ? '' : 'ok');
+  }
+}
+$('#cam').onchange = e => { send([...e.target.files]); e.target.value = ''; };
+$('#pick').onchange = e => { send([...e.target.files]); e.target.value = ''; };
+$('#done').onclick = async () => { try { await api('/api/upq/done', { t: T }); } catch (e) { } closed = true; $('#box').innerHTML = '<div style="text-align:center;padding:30px 0"><div style="font-size:44px">✓</div><div style="font-size:18px;font-weight:600;margin-top:6px">已传 ' + n + ' 张</div><div class="sub">电脑上已收到，可以关掉这个页面了</div></div>'; };
+info();
+</script>
+</body></html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>库房出入库</title>
+<meta name="viewport" content="width=1280">
+<link rel="stylesheet" href="/app.css">
+</head><body>
+<div class="nav">
+  <div class="logo"><i></i><span id="siteName">库房出入库</span></div>
+  <div class="tabs" id="tabs">
+    <a data-p="home">首页</a><a data-p="daily">日表</a><a data-p="out">出库</a><a data-p="loan">借用归还</a><a data-p="arrival">到货</a>
+    <a data-p="stock">产品与库存</a><a data-p="report">报表</a><a data-p="settings">设置</a>
+  </div>
+  <div class="who" id="who"></div>
+</div>
+<div id="main"></div>
+<div id="cellBar" hidden></div>
+<div class="foot" id="foot"></div>
+<script src="/names.js"></script><script src="/core.js"></script>
+<script src="/app.js"></script>
+<script src="/p_out.js"></script>
+<script src="/p_daily.js"></script>
+<script src="/p_arrival.js"></script>
+<script src="/p_stock.js"></script>
+<script src="/p_misc.js"></script>
+<script src="/p_loan.js"></script>
+<script src="/o2grid.js"></script>
+<script src="/p_report.js"></script>
+<script src="/p_slip.js"></script>
+<script src="/p_print.js"></script>
+<script src="/p_sys.js"></script>
+<script>App.start()</script>
+</body></html>
